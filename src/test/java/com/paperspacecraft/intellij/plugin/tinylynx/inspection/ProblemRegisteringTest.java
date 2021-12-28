@@ -31,7 +31,7 @@ public class ProblemRegisteringTest extends JavaCodeInsightBase {
         inspection.registerProblems(javaDocInspectable, problemsHolder, spellcheckResult, true);
         Assert.assertEquals(offenderWords.length, problemsHolder.getResultCount());
         for (int i = 0; i < offenderWords.length; i++) {
-            Assert.assertEquals("Tactical mistake: " + offenderWords[i], problemsHolder.getResultsArray()[i].toString());
+            Assert.assertTrue(problemsHolder.getResultsArray()[i].toString().contains("Tactical mistake: " + offenderWords[i]));
         }
     }
 
