@@ -35,8 +35,12 @@ public class CheckTextUi {
             checkTextWindow = (CheckTextComponent) content.getDisposer();
         }
         if (StringUtils.isNotBlank(text)) {
-            Objects.requireNonNull(checkTextWindow).getTextEditor().setText(text + "\n");
-            checkTextWindow.startChecking();
+            toolWindow.activate(() -> {
+                Objects.requireNonNull(checkTextWindow).getTextEditor().setText(text + "\n");
+                checkTextWindow.startChecking();
+            });
+        } else {
+            toolWindow.activate(null);
         }
     }
 
