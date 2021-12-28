@@ -1,0 +1,58 @@
+<idea-plugin>
+    <id>com.paperspacecraft.tinylynx</id>
+    <name>Tiny Lynx (Proofreading Tool)</name>
+    <vendor url="https://github.com/paperspacecraft">Paper Spacecraft</vendor>
+    <version>1.0.0-SNAPSHOT</version>
+
+    <description><![CDATA[
+        Provides the integration of third-party spellcheck (proofreading) tools in IntelliJ Platform IDEs.
+        <br>Contains the unofficial <a href="https://www.grammarly.com">Grammarly</a> web client.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.java</depends>
+    <depends>org.intellij.plugins.markdown</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <projectConfigurable
+                parentId="tools"
+                id="tinylynx.config"
+                instance="com.paperspacecraft.intellij.plugin.tinylynx.settings.SettingsConfigurator"
+                displayName="Tiny Lynx"
+                nonDefaultProject="true"/>
+
+        <localInspection
+                language="JAVA"
+                shortName="tinylynx.java"
+                displayName="Tiny Lynx: Java class files spelling"
+                groupBundle="messages.InspectionsBundle"
+                groupKey="inspection.general.tools.group.name"
+                enabledByDefault="true"
+                level="WARNING"
+                implementationClass="com.paperspacecraft.intellij.plugin.tinylynx.inspection.JavaInspection"/>
+        <localInspection
+                language="Markdown"
+                shortName="tinylynx.markdown"
+                displayName="Tiny Lynx: Markdown files spelling"
+                groupBundle="messages.InspectionsBundle"
+                groupKey="inspection.general.tools.group.name"
+                enabledByDefault="true"
+                level="WARNING"
+                implementationClass="com.paperspacecraft.intellij.plugin.tinylynx.inspection.MarkdownInspection"/>
+    </extensions>
+
+    <actions>
+        <group id="tinylynx.actions.menu" text="TinyLynx Proofreading" popup="true" icon="StaticIcons.TinyLynx">
+            <add-to-group group-id="EditorPopupMenu"/>
+            <action id="tinylynx.action.openInWindow"
+                    class="com.paperspacecraft.intellij.plugin.tinylynx.action.OpenToolWindow"
+                    text="Open in Tool Window"
+                    description="Opens a dedicated tool window for the proofreading of the selected text"/>
+            <action id="tinylynx.action.clearCacheInspect"
+                    class="com.paperspacecraft.intellij.plugin.tinylynx.action.ClearCacheInspect"
+                    text="Clear Cache and Inspect..."
+                    description="Clears the web results cache and allows to run a new inspection on the selected file"/>
+        </group>
+    </actions>
+
+</idea-plugin>
