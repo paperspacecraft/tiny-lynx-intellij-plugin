@@ -38,6 +38,10 @@ public class StringHelper {
         return getPositionAfterSpace(value, posAfterSpace);
     }
 
+    static boolean isOneWord(String value) {
+        return value != null && value.chars().allMatch(chr -> Character.isLetterOrDigit(chr) || chr == '.' || chr == '/');
+    }
+
     public static boolean isWithinJavadocTag(String text, TextRange range) {
         InlineTagMatcher matcher = new InlineTagMatcher(text);
         while (matcher.find()) {
