@@ -5,7 +5,9 @@ import com.intellij.openapi.util.TextRange;
 @SuppressWarnings({"unused", "squid:S1170"})
 public interface SpellcheckAlert {
 
-    String getGroup();
+    String getCategory();
+
+    String getOverhead();
 
     String getTitle();
 

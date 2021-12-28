@@ -15,7 +15,12 @@ class SyntheticInlineAlert implements SpellcheckAlert {
     private final String fullMessage;
 
     @Override
-    public String getGroup() {
+    public String getCategory() {
+        return null;
+    }
+
+    @Override
+    public String getOverhead() {
         return null;
     }
 

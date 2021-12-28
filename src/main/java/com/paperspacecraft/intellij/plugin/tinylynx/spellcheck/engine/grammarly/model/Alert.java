@@ -19,6 +19,7 @@ public class Alert implements SpellcheckAlert {
     @Setter
     private String title;
 
+    @Getter
     private String category;
 
     @SerializedName("categoryHuman")
@@ -55,7 +56,7 @@ public class Alert implements SpellcheckAlert {
     private CardLayout cardLayout;
 
     @Override
-    public String getGroup() {
+    public String getOverhead() {
         String[] words = StringUtils.splitByCharacterTypeCamelCase(group);
         for (int i = 1; i < words.length; i++) {
             words[i] = words[i].toLowerCase();
@@ -64,10 +65,9 @@ public class Alert implements SpellcheckAlert {
     }
 
     public String getTitle() {
-        return StringUtils.defaultIfBlank(title, getCategory());
-    }
-
-    private String getCategory() {
+        if (StringUtils.isNotBlank(title)) {
+            return title;
+        }
         if (StringUtils.containsAny(extendedCategoryInfo, "WPCRedundantComma", "WPCRedComma")) {
             return "redundant comma";
         } else if (StringUtils.containsAny(extendedCategoryInfo, "WPCMissingComma", "WPCMissingComma")) {
@@ -92,7 +92,7 @@ public class Alert implements SpellcheckAlert {
 
     @Override
     public String getFullMessage() {
-        StringBuilder result = new StringBuilder(getGroup());
+        StringBuilder result = new StringBuilder(getOverhead());
         if (!"Enhancement".equals(result.toString())) {
             result.append(" mistake");
         }
