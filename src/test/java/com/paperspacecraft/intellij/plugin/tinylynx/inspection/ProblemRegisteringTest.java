@@ -82,7 +82,7 @@ public class ProblemRegisteringTest extends JavaCodeInsightBase {
         ProblemsHolder problemsHolder = new ProblemsHolder(inspectionManager, inspectable.getElement().getContainingFile(), false);
         JavaInspection inspection = new JavaInspection();
         inspection.registerProblems(javaDocTag, problemsHolder, spellcheckResult, true);
-        Assert.assertEquals("Tactical mistake: " + offenderWord, problemsHolder.getResults().get(0).toString());
+        Assert.assertTrue(problemsHolder.getResults().get(0).toString().contains("Tactical mistake: " + offenderWord));
     }
 
     private SpellcheckResult doCommentCheck(Inspectable inspectable, String[] offenderWords) {
