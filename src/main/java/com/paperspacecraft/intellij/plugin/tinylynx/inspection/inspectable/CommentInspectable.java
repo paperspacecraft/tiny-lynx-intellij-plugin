@@ -117,17 +117,16 @@ public class CommentInspectable implements Inspectable {
 
     @Override
     public boolean isAlertRelevant(SpellcheckAlert alert) {
-        return !StringHelper.isWithinJavadocTag(getText(), alert.getRange())
-                && !StringUtils.containsIgnoreCase(alert.getTitle(), "closing punct");
+        return !StringHelper.isWithinJavadocTag(getText(), alert.getRange());
     }
 
     @Override
-    public LocalQuickFix getQuickReplacement(String replacement) {
+    public LocalQuickFix getReplacement(String replacement) {
         return new CommentQuickFix(replacement);
     }
 
     @Override
-    public boolean canHaveQuickFixes(SpellcheckAlert alert) {
+    public boolean canHaveReplacements(SpellcheckAlert alert) {
         return !isSequenceOfSingleLines;
     }
 

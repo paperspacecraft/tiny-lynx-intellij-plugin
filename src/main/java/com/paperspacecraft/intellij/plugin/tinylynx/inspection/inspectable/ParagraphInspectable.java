@@ -24,7 +24,7 @@ public class ParagraphInspectable implements Inspectable {
     }
 
     @Override
-    public LocalQuickFix getQuickReplacement(String replacement) {
+    public LocalQuickFix getReplacement(String replacement) {
         return new ParagraphQuickFix(replacement);
     }
 

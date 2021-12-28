@@ -25,7 +25,8 @@ import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiInvalidElementAccessException;
 import com.intellij.psi.SmartPointerManager;
 import com.paperspacecraft.intellij.plugin.tinylynx.inspection.inspectable.Inspectable;
-import com.paperspacecraft.intellij.plugin.tinylynx.inspection.quickfix.IgnoreQuickFix;
+import com.paperspacecraft.intellij.plugin.tinylynx.inspection.quickfix.IgnoreCategoryQuickFix;
+import com.paperspacecraft.intellij.plugin.tinylynx.inspection.quickfix.IgnoreTextQuickFix;
 import com.paperspacecraft.intellij.plugin.tinylynx.settings.SettingsService;
 import com.paperspacecraft.intellij.plugin.tinylynx.spellcheck.SpellcheckAlert;
 import com.paperspacecraft.intellij.plugin.tinylynx.spellcheck.SpellcheckResult;
@@ -131,17 +132,25 @@ abstract class Inspection extends LocalInspectionTool {
         }
         SettingsService settings = SettingsService.getInstance(holder.getProject());
         List<SpellcheckAlert> processedAlerts = new ArrayList<>();
+
         for (SpellcheckAlert alert : result.getAlerts()) {
+
             boolean isSimilarProcessed = processedAlerts
                     .stream()
                     .anyMatch(other -> StringUtils.equals(alert.getFullMessage(), other.getFullMessage())
                             && alert.getRange().equals(other.getRange()));
+            boolean isExcluded = SettingsService.getInstance(holder.getProject()).getExclusionSet()
+                    .stream()
+                    .anyMatch(exclusion -> StringUtils.equals(exclusion, alert.getContent())
+                            || StringUtils.equalsIgnoreCase(exclusion, IgnoreCategoryQuickFix.PREFIX_CATEGORY + alert.getCategory()));
+
             if ((!alert.isFacultative() || settings.isShowAdvancedMistakes())
                     && !isSimilarProcessed
                     && target.isAlertRelevant(alert)
-                    && !SettingsService.getInstance(holder.getProject()).getExclusionSet().contains(alert.getContent())) {
+                    && !isExcluded) {
                 registerProblem(target, holder, alert, isOnTheFly);
             }
+
             processedAlerts.add(alert);
         }
     }
@@ -152,18 +161,18 @@ abstract class Inspection extends LocalInspectionTool {
             SpellcheckAlert alert,
             boolean isOnTheFly) {
 
-        LocalQuickFix[] quickFixes = null;
-        boolean canHaveQuickFixes = isOnTheFly && target.canHaveQuickFixes(alert);
+        boolean canHaveReplacements = isOnTheFly && target.canHaveReplacements(alert);
 
-        if (canHaveQuickFixes) {
-            Stream<LocalQuickFix> replacements = ArrayUtils.isNotEmpty(alert.getReplacements())
-                    ? Arrays.stream(alert.getReplacements()).filter(StringUtils::isNotBlank).map(target::getQuickReplacement).filter(Objects::nonNull)
-                    : Stream.empty();
-            Stream<LocalQuickFix> ignore = IgnoreQuickFix.isApplicable(alert)
-                    ? Stream.of(new IgnoreQuickFix(alert.getContent()))
-                    : Stream.empty();
-            quickFixes = Stream.concat(replacements, ignore).toArray(LocalQuickFix[]::new);
-        }
+        Stream<LocalQuickFix> ignores = Stream.of(
+                IgnoreTextQuickFix.isApplicable(alert) ? new IgnoreTextQuickFix(alert.getContent()) : null,
+                new IgnoreCategoryQuickFix(alert.getCategory()))
+                .filter(Objects::nonNull);
+
+        Stream<LocalQuickFix> replacements = canHaveReplacements && ArrayUtils.isNotEmpty(alert.getReplacements())
+                ? Arrays.stream(alert.getReplacements()).filter(StringUtils::isNotBlank).map(target::getReplacement).filter(Objects::nonNull)
+                : Stream.empty();
+
+        LocalQuickFix[] quickFixes = Stream.concat(ignores, replacements).toArray(LocalQuickFix[]::new);
 
         String fullMessage = String.format(PROBLEM_FORMAT, alert.getFullMessage());
         holder.registerProblem(
@@ -183,6 +192,10 @@ abstract class Inspection extends LocalInspectionTool {
     private void lightRefresh(Project project, PsiFile file, InspectionManagerEx manager) {
         if (file == null) {
             LOG.warn("Could not invoke the proper inspection context: file is null");
+            return;
+        }
+        if (project.isDisposed()) {
+            LOG.warn("Could not perform the refreshing inspection: project has been already disposed");
             return;
         }
         Document document = PsiDocumentManager

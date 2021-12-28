@@ -71,7 +71,7 @@ public class JavaDocInspectable implements Inspectable {
     }
 
     @Override
-    public LocalQuickFix getQuickReplacement(String replacement) {
-        return comment.getQuickReplacement(replacement);
+    public LocalQuickFix getReplacement(String replacement) {
+        return comment.getReplacement(replacement);
     }
 }

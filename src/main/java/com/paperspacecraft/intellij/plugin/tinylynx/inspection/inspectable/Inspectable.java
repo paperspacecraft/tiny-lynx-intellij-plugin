@@ -42,9 +42,9 @@ public interface Inspectable {
         return true;
     }
 
-    default boolean canHaveQuickFixes(SpellcheckAlert alert) {
+    default boolean canHaveReplacements(SpellcheckAlert alert) {
         return true;
     }
 
-    LocalQuickFix getQuickReplacement(String replacement);
+    LocalQuickFix getReplacement(String replacement);
 }

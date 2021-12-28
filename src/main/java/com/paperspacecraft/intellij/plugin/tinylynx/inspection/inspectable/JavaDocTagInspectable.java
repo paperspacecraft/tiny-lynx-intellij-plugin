@@ -24,7 +24,7 @@ class JavaDocTagInspectable extends CommentInspectable {
     }
 
     @Override
-    public LocalQuickFix getQuickReplacement(String replacement) {
+    public LocalQuickFix getReplacement(String replacement) {
         return new JavaDocTagQuickFix(this, replacement);
     }
 
