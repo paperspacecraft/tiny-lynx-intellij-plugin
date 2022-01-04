@@ -39,7 +39,7 @@ public class StringHelper {
     }
 
     static boolean isOneWord(String value) {
-        return value != null && value.chars().allMatch(chr -> Character.isLetterOrDigit(chr) || chr == '.' || chr == '/');
+        return value != null && value.chars().noneMatch(Character::isWhitespace);
     }
 
     public static boolean isWithinJavadocTag(String text, TextRange range) {

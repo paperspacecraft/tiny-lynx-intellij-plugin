@@ -1,6 +1,7 @@
 package com.paperspacecraft.intellij.plugin.tinylynx.settings;
 
 import com.intellij.openapi.options.Configurable;
+import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectManager;
 import com.intellij.openapi.project.ProjectUtil;
 import org.apache.commons.codec.binary.StringUtils;
@@ -11,18 +12,21 @@ import javax.swing.*;
 
 public class SettingsConfigurator implements Configurable {
 
+    private final SettingsService settingsService;
     private SettingsComponent settingsComponent;
-    private SettingsService settingsService;
+
+    public SettingsConfigurator(Project project) {
+        settingsService = project.getService(SettingsService.class);
+        settingsComponent = new SettingsComponent();
+    }
 
     @Override
     public String getDisplayName() {
-        return "TinyLynx";
+        return "Tiny Lynx";
     }
 
     @Override
     public @Nullable JComponent createComponent() {
-        settingsComponent = new SettingsComponent();
-        settingsService = ProjectUtil.guessCurrentProject(settingsComponent.getContentPanel()).getService(SettingsService.class);
         return settingsComponent.getContentPanel();
     }
 
@@ -32,6 +36,7 @@ public class SettingsConfigurator implements Configurable {
                 || settingsService.isShowAdvancedMistakes() != settingsComponent.isShowAdvancedMistakes()
                 || settingsService.getCacheLifespan() != settingsComponent.getCacheLifespan()
                 || settingsService.getParallelRequests() != settingsComponent.getParallelRequests()
+                || settingsService.isExtendedLogging() != settingsComponent.isExtendedLogging()
                 || !StringUtils.equals(settingsService.getGrammarlyClientType(), settingsComponent.getGrammarlyClientType())
                 || !StringUtils.equals(settingsService.getGrammarlyClientVersion(), settingsComponent.getGrammarlyClientVersion())
                 || !StringUtils.equals(settingsService.getGrammarlyClientOrigin(), settingsComponent.getGrammarlyClientOrigin())
@@ -46,6 +51,7 @@ public class SettingsConfigurator implements Configurable {
         settingsService.setShowAdvancedMistakes(settingsComponent.isShowAdvancedMistakes());
         settingsService.setCacheLifespan(settingsComponent.getCacheLifespan());
         settingsService.setParallelRequests(settingsComponent.getParallelRequests());
+        settingsService.setExtendedLogging(settingsComponent.isExtendedLogging());
         settingsService.getExclusionSet().clear();
         settingsService.getExclusionSet().addAll(settingsComponent.getExclusions());
 
@@ -64,6 +70,7 @@ public class SettingsConfigurator implements Configurable {
         settingsComponent.setShowAdvancedMistakes(settingsService.isShowAdvancedMistakes());
         settingsComponent.setCacheLifespan(settingsService.getCacheLifespan());
         settingsComponent.setParallelRequests(settingsService.getParallelRequests());
+        settingsComponent.setExtendedLogging(settingsService.isExtendedLogging());
         settingsComponent.setExclusions(settingsService.getExclusionSet());
 
         settingsComponent.setGrammarlyClientType(settingsService.getGrammarlyClientType());

@@ -32,14 +32,15 @@ class SettingsComponent {
     private JCheckBox cbShowAdvanced;
     private JBTextField tbCacheLifespan;
     private JBTextField tbParallelRequests;
+    private JCheckBox cbExtendedLogging;
+
+    private CollectionListModel<String> lstExclusionsModel;
 
     private JBTextField tbGrammarlyClientType;
     private JBTextField tbGrammarlyClientVersion;
     private JBTextField tbGrammarlyClientOrigin;
     private JBTextField tbGrammarlyUserAgent;
     private JBTextField tbGrammarlyCookie;
-
-    private CollectionListModel<String> lstExclusionsModel;
 
     public SettingsComponent() {
         createUi();
@@ -99,6 +100,14 @@ class SettingsComponent {
         tbParallelRequests.setText(String.valueOf(value));
     }
 
+
+    public boolean isExtendedLogging() {
+        return cbExtendedLogging.isSelected();
+    }
+
+    public void setExtendedLogging(boolean value) {
+        this.cbExtendedLogging.setSelected(value);
+    }
 
     public String getGrammarlyClientType() {
         return tbGrammarlyClientType.getText();
@@ -167,6 +176,9 @@ class SettingsComponent {
         JLabel lblExclusions = new JLabel("Manage exclusions");
         lblExclusions.setBorder(BorderFactory.createEmptyBorder(8, 0, 8, 0));
 
+        cbExtendedLogging = new JBCheckBox("Extended logging");
+        cbExtendedLogging.setBorder(BorderFactory.createEmptyBorder(8, 0, 0, 0));
+
         JPanel pnlExclusions = createExclusionsPanel();
 
         JPanel pnlSpellcheckSettings = createBox(
@@ -174,7 +186,8 @@ class SettingsComponent {
                 cbEnabled,
                 cbShowAdvanced,
                 lblExclusions,
-                pnlExclusions);
+                pnlExclusions,
+                cbExtendedLogging);
 
         // Service settings
 

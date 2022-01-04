@@ -27,6 +27,7 @@ public final class SettingsService implements PersistentStateComponent<SettingsS
 
     private static final boolean DEFAULT_ON_THE_FLY = true;
     private static final boolean DEFAULT_SHOW_ADVANCED = true;
+    private static final boolean DEFAULT_EXTENDED_LOGGING = false;
 
     static final int DEFAULT_CACHE_LIFESPAN = 30; // minutes
     static final int DEFAULT_PARALLEL_REQUESTS = 5;
@@ -61,6 +62,11 @@ public final class SettingsService implements PersistentStateComponent<SettingsS
     @Setter
     private int parallelRequests = DEFAULT_PARALLEL_REQUESTS;
 
+    @Tag
+    @Getter
+    @Setter
+    private boolean extendedLogging = DEFAULT_EXTENDED_LOGGING;
+
     @XCollection(elementName = "exclusion", propertyElementName = "exclusions")
     private List<String> exclusions;
     @Getter
@@ -69,7 +75,6 @@ public final class SettingsService implements PersistentStateComponent<SettingsS
     /* ------------------
        Grammarly settings
        ------------------ */
-
 
     @Tag
     @Getter

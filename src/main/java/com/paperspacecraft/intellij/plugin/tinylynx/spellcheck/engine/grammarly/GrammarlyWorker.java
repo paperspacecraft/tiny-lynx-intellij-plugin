@@ -40,6 +40,7 @@ public class GrammarlyWorker extends SpellcheckWorker {
     private static final String EXTRA_WHITESPACES_PATTERN = "\\s{2,}";
     private static final String JSON_NODE_PATTERN = "\"\\w+\":(?:\"[^\"]+\"|-?\\d+),";
 
+    private static final List<String> PASS_THROUGH_ACTIONS = Collections.singletonList("emotions");
 
     private SpellcheckTask currentTask;
     private String currentDebugToken;
@@ -68,8 +69,8 @@ public class GrammarlyWorker extends SpellcheckWorker {
         currentResponse = new StringBuilder();
 
         String authString = getProject().getService(AuthenticationService.class).getAuthString();
-        LOG.debug(String.format("[%s] Starting task %s", currentDebugToken, currentTask.getText()));
-        LOG.debug(String.format("[%s] Using auth string %s", currentDebugToken, authString));
+        debug(String.format("[%s] Starting task %s", currentDebugToken, currentTask.getText()));
+        debug(String.format("[%s] Using auth string %s", currentDebugToken, authString));
 
         WebSocketClient webSocketClient = new WebSocketClient();
         webSocketClient.setOnSocketOpenAction(this::onSockedOpened);
@@ -93,12 +94,12 @@ public class GrammarlyWorker extends SpellcheckWorker {
         ------------------- */
 
     private void onSockedOpened(WebSocket webSocket) {
-        LOG.debug(String.format("[%s] Sending initial message", currentDebugToken));
+        debug(String.format("[%s] Sending initial message", currentDebugToken));
         webSocket.sendText(GSON.toJson(InitialMessage.INSTANCE), true);
     }
 
     private void onConnectionEstablished(WebSocket webSocket) {
-        LOG.debug(String.format("[%s] Sending text for analysis", currentDebugToken));
+        debug(String.format("[%s] Sending text for analysis", currentDebugToken));
         webSocket.sendText(GSON.toJson(new Submission(currentTask.getText())), true);
     }
 
@@ -125,7 +126,7 @@ public class GrammarlyWorker extends SpellcheckWorker {
 
             client.setDebugToken(currentDebugToken);
             client.setResponseAccumulator(currentResponse);
-            LOG.debug(String.format("[%s] Recharging current worker for '%s'", currentDebugToken, currentTask.getText()));
+            debug(String.format("[%s] Recharging current worker for '%s'", currentDebugToken, currentTask.getText()));
 
             webSocket.sendText(GSON.toJson(InitialMessage.INSTANCE), true);
 
@@ -144,6 +145,14 @@ public class GrammarlyWorker extends SpellcheckWorker {
        Utility methods
        --------------- */
 
+    private void debug(String text) {
+        if (SettingsService.getInstance(getProject()).isExtendedLogging()) {
+            LOG.info(text);
+        } else {
+            LOG.debug(text);
+        }
+    }
+
     private static String createDebugToken(SpellcheckTask task) {
         return StringUtils.abbreviate(
                 task.getText().replaceAll(EXTRA_WHITESPACES_PATTERN, StringUtils.SPACE),
@@ -155,9 +164,7 @@ public class GrammarlyWorker extends SpellcheckWorker {
        ---------------- */
 
     @Setter
-    private static class WebSocketClient implements WebSocket.Listener {
-
-        private static final List<String> PASS_THROUGH_ACTIONS = Collections.singletonList("emotions");
+    private class WebSocketClient implements WebSocket.Listener {
 
         private Consumer<WebSocket> onSocketOpenAction;
 
@@ -178,7 +185,7 @@ public class GrammarlyWorker extends SpellcheckWorker {
 
         @Override
         public void onOpen(WebSocket webSocket) {
-            LOG.debug(String.format("[%s] Socket opened", debugToken));
+            debug(String.format("[%s] Socket opened", debugToken));
             state = State.SOCKED_OPENED;
             onSocketOpenAction.accept(webSocket);
             WebSocket.Listener.super.onOpen(webSocket);
@@ -186,7 +193,7 @@ public class GrammarlyWorker extends SpellcheckWorker {
 
         @Override
         public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
-            LOG.debug(String.format("[%s] Close command received. Status %s, reason '%s'", debugToken, statusCode, reason));
+            debug(String.format("[%s] Close command received. Status %s, reason '%s'", debugToken, statusCode, reason));
             return WebSocket.Listener.super.onClose(webSocket, statusCode, reason);
         }
 
@@ -207,16 +214,16 @@ public class GrammarlyWorker extends SpellcheckWorker {
             String action = serviceResponse.getAction();
 
             if (state == State.SOCKED_OPENED && "start".equals(action)) {
-                LOG.debug(String.format("[%s] Initialization confirmed", debugToken));
+                debug(String.format("[%s] Initialization confirmed", debugToken));
                 state = State.CONN_ESTABLISHED;
                 onConnectionEstablishedAction.accept(webSocket);
 
             } else if (state == State.CONN_ESTABLISHED && "submit_ot".equals(action)) {
-                LOG.debug(String.format("[%s] Submit action confirmed", debugToken));
+                debug(String.format("[%s] Submit action confirmed", debugToken));
                 state = State.SUBMIT_CONFIRMED;
 
             } else if (state == State.SUBMIT_CONFIRMED && "alert".equals(action)) {
-                LOG.debug(String.format("[%s] Alert received: %s", debugToken, data));
+                debug(String.format("[%s] Alert received: %s", debugToken, data));
 
                 SpellcheckAlert alert = deserialize(data, Alert.class);
                 if (alert != null) {
@@ -225,7 +232,7 @@ public class GrammarlyWorker extends SpellcheckWorker {
                 }
 
             } else if (state == State.SUBMIT_CONFIRMED && "finished".equals(action)) {
-                LOG.debug(String.format("[%s] Checking finished: %s", debugToken, data));
+                debug(String.format("[%s] Checking finished: %s", debugToken, data));
 
                 responseAccumulator.append("\n").append(data);
                 onFinishedAction.accept(this, webSocket);
@@ -253,11 +260,11 @@ public class GrammarlyWorker extends SpellcheckWorker {
         }
 
         @SuppressWarnings("SameParameterValue")
-        private static <T> T deserialize(CharSequence value, Class<T> type) {
+        private <T> T deserialize(CharSequence value, Class<T> type) {
             return deserialize(value, null, type);
         }
 
-        private static <T> T deserialize(CharSequence value, T fallbackValue, Class<T> type) {
+        private <T> T deserialize(CharSequence value, T fallbackValue, Class<T> type) {
             try {
                 return GSON.fromJson(value.toString(), type);
             } catch (JsonSyntaxException e) {
