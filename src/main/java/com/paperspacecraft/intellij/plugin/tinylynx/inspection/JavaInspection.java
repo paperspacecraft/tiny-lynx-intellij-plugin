@@ -20,7 +20,7 @@ class JavaInspection extends Inspection {
 
     private static final int MIN_VIABLE_LITERAL_LENGTH = 4;
 
-    public JavaInspection(boolean refreshingMode) {
+    JavaInspection(boolean refreshingMode) {
         super(refreshingMode);
     }
 
