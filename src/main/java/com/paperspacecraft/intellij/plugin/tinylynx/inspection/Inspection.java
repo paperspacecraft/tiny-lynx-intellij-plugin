@@ -90,8 +90,8 @@ abstract class Inspection extends LocalInspectionTool {
         }
 
         // Finally, start the asynchronous search
-        PsiFile containingFile = getContainingFile(target.getElement());
-        Object identity = SmartPointerManager.getInstance(holder.getProject()).createSmartPsiElementPointer(target.getElement(), containingFile);
+        Object identity = new LightIdentity(target.getElement(), containingFile);
+        List<RangeHighlighter> highlighters = HighlighterHelper.getHighlighters(holder.getProject(), containingFile);
         spellcheckService
                 .checkAsync(identity, target.getText())
                 .thenAccept(result -> doAsyncInspectCallback(holder, target.getElement(), containingFile, result));
