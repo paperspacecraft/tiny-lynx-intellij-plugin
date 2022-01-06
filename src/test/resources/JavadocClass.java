@@ -43,6 +43,12 @@ public class JavaClass {
 
         return "Hello world"
     }
+
+    public String method3() {
+
+        // Comment with *emphasized words*
+        return "null"
+    }
 }
 
 // Comment after

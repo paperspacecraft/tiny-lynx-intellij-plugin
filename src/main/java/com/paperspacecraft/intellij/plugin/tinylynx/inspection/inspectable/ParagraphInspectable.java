@@ -20,7 +20,8 @@ public class ParagraphInspectable implements Inspectable {
 
     @Override
     public boolean isAlertRelevant(SpellcheckAlert alert) {
-        return !StringHelper.isWithinCodeSnippet(getText(), alert.getRange());
+        return !StringHelper.isWithinCodeSnippet(getText(), alert.getRange())
+                && !StringHelper.isWithinEmphasis(getText(), alert.getRange());
     }
 
     @Override

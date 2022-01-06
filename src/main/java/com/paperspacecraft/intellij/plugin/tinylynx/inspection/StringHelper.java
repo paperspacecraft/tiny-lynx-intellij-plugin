@@ -56,16 +56,23 @@ public class StringHelper {
         if (!StringUtils.contains(text, "`")) {
             return false;
         }
-        List<TextRange> snippetRanges = new ArrayList<>(createSnippetRange(text, "```", Collections.emptyList()));
-        snippetRanges.addAll(createSnippetRange(text, "`", snippetRanges));
+        List<TextRange> snippetRanges = new ArrayList<>(createMarkedRanges(text, "```", Collections.emptyList()));
+        snippetRanges.addAll(createMarkedRanges(text, "`", snippetRanges));
         if  (snippetRanges.stream().noneMatch(r -> r.contains(range))) {
             return false;
         }
         return snippetRanges.stream().anyMatch(r -> r.contains(range));
-
     }
 
-    private static List<TextRange> createSnippetRange(String text, String delimiter, List<TextRange> existingRanges) {
+    public static boolean isWithinEmphasis(String text, TextRange range) {
+        if (!StringUtils.contains(text, "*")) {
+            return false;
+        }
+        List<TextRange> emphasisRanges = new ArrayList<>(createMarkedRanges(text, "*", Collections.emptyList()));
+        return emphasisRanges.stream().anyMatch(r -> r.contains(range));
+    }
+
+    private static List<TextRange> createMarkedRanges(String text, String delimiter, List<TextRange> existingRanges) {
         List<TextRange> result = new ArrayList<>();
         int start = text.indexOf(delimiter);
         int end;
