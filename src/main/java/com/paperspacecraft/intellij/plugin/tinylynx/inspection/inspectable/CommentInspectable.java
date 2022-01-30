@@ -9,7 +9,7 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiElementFactory;
 import com.intellij.psi.PsiWhiteSpace;
 import com.paperspacecraft.intellij.plugin.tinylynx.inspection.StringHelper;
-import com.paperspacecraft.intellij.plugin.tinylynx.inspection.quickfix.AbstractQuickFix;
+import com.paperspacecraft.intellij.plugin.tinylynx.inspection.quickfix.ReplacementQuickFix;
 import com.paperspacecraft.intellij.plugin.tinylynx.spellcheck.SpellcheckAlert;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -224,7 +224,7 @@ public class CommentInspectable implements Inspectable {
         private boolean isText;
     }
 
-    private static class CommentQuickFix extends AbstractQuickFix {
+    private static class CommentQuickFix extends ReplacementQuickFix {
 
         public CommentQuickFix(String replacement) {
             super(replacement);

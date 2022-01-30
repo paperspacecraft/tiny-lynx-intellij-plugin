@@ -7,7 +7,7 @@ import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiElementFactory;
 import com.paperspacecraft.intellij.plugin.tinylynx.inspection.StringHelper;
-import com.paperspacecraft.intellij.plugin.tinylynx.inspection.quickfix.AbstractQuickFix;
+import com.paperspacecraft.intellij.plugin.tinylynx.inspection.quickfix.ReplacementQuickFix;
 import lombok.Getter;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
@@ -80,7 +80,7 @@ class JavaDocTagInspectable extends CommentInspectable {
                 existingTagChunk.getRange().getEndOffset()));
     }
 
-    private static class JavaDocTagQuickFix extends AbstractQuickFix {
+    private static class JavaDocTagQuickFix extends ReplacementQuickFix {
 
         private final int parentOffset;
 

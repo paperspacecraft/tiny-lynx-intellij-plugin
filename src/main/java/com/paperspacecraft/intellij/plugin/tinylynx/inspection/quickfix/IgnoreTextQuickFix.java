@@ -7,7 +7,7 @@ import com.paperspacecraft.intellij.plugin.tinylynx.settings.SettingsService;
 import com.paperspacecraft.intellij.plugin.tinylynx.spellcheck.SpellcheckAlert;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.ArrayUtils;
-import org.codehaus.plexus.util.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.Nls;
 import org.jetbrains.annotations.NotNull;
 
@@ -16,6 +16,9 @@ import java.util.Arrays;
 @RequiredArgsConstructor
 public class IgnoreTextQuickFix implements LocalQuickFix {
 
+    public static final String EXCLUSION_FORMAT = "{%s}%s";
+
+    private final String category;
     private final String text;
 
     @Override
@@ -25,17 +28,19 @@ public class IgnoreTextQuickFix implements LocalQuickFix {
 
     @Override
     public void applyFix(@NotNull Project project, @NotNull ProblemDescriptor descriptor) {
-        SettingsService.getInstance(descriptor.getPsiElement().getProject()).getExclusionSet().add(text);
+        SettingsService.getInstance(descriptor.getPsiElement().getProject())
+                .getExclusionSet()
+                .add(String.format(EXCLUSION_FORMAT, IgnoreCategoryQuickFix.PREFIX_CATEGORY + category, text));
     }
 
     public static boolean isApplicable(SpellcheckAlert alert) {
         if (alert == null) {
             return false;
         }
-        if (StringUtils.contains(alert.getCategory(), "Punct")
-            || StringUtils.equalsIgnoreCase(alert.getCategory(), "WordChoice")) {
+        if (StringUtils.contains(alert.getCategory(), "Punct")) {
             return false;
         }
-        return ArrayUtils.isEmpty(alert.getReplacements()) || Arrays.stream(alert.getReplacements()).allMatch(ReplacementUtil::isStandalone);
+        return ArrayUtils.isEmpty(alert.getReplacements())
+                || Arrays.stream(alert.getReplacements()).allMatch(ReplacementUtil::isStandalone);
     }
 }

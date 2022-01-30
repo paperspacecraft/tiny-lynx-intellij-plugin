@@ -26,3 +26,7 @@ both on the fly and dedicated proofreading.
 Currently, the project integrates the [Grammarly](https://www.grammarly.com/) free online writing assistant. The websocket-based client is inspired by [this GitHub project](https://github.com/stewartmcgown/grammarly-api).
 
 There are more client integrations to come.
+
+### Licensing
+
+The project is distributed under the Apache 2.0 license. See [LICENSE](LICENSE) for details. 

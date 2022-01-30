@@ -5,7 +5,7 @@ import com.intellij.codeInspection.ProblemDescriptor;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.PsiElement;
 import com.paperspacecraft.intellij.plugin.tinylynx.inspection.StringHelper;
-import com.paperspacecraft.intellij.plugin.tinylynx.inspection.quickfix.AbstractQuickFix;
+import com.paperspacecraft.intellij.plugin.tinylynx.inspection.quickfix.ReplacementQuickFix;
 import com.paperspacecraft.intellij.plugin.tinylynx.spellcheck.SpellcheckAlert;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +29,7 @@ public class ParagraphInspectable implements Inspectable {
         return new ParagraphQuickFix(replacement);
     }
 
-    private static class ParagraphQuickFix extends AbstractQuickFix {
+    private static class ParagraphQuickFix extends ReplacementQuickFix {
 
         public ParagraphQuickFix(String replacement) {
             super(replacement);

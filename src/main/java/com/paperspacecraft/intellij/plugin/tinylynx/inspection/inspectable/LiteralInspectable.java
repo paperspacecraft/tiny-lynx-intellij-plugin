@@ -5,7 +5,7 @@ import com.intellij.codeInspection.ProblemDescriptor;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.JavaPsiFacade;
 import com.intellij.psi.PsiElement;
-import com.paperspacecraft.intellij.plugin.tinylynx.inspection.quickfix.AbstractQuickFix;
+import com.paperspacecraft.intellij.plugin.tinylynx.inspection.quickfix.ReplacementQuickFix;
 import com.paperspacecraft.intellij.plugin.tinylynx.spellcheck.SpellcheckAlert;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +28,7 @@ public class LiteralInspectable implements Inspectable {
         return new LiteralQuickFix(replacement);
     }
 
-    private static class LiteralQuickFix extends AbstractQuickFix {
+    private static class LiteralQuickFix extends ReplacementQuickFix {
 
         public LiteralQuickFix(String replacement) {
             super(replacement);

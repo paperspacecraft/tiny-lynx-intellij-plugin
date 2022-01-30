@@ -10,7 +10,7 @@ import org.jetbrains.annotations.Nls;
 import org.jetbrains.annotations.NotNull;
 
 @RequiredArgsConstructor
-public abstract class AbstractQuickFix implements LocalQuickFix {
+public abstract class ReplacementQuickFix implements LocalQuickFix {
 
     private final String replacement;
 
@@ -46,6 +46,6 @@ public abstract class AbstractQuickFix implements LocalQuickFix {
     }
 
     private TextRange extendWithLeadingSpaces(String text, TextRange range) {
-        return new TextRange(StringHelper.getLeftmostSpace(text, range.getStartOffset()), range.getEndOffset());
+        return new TextRange(StringHelper.getFarthestSpaceToTheLeft(text, range.getStartOffset()), range.getEndOffset());
     }
 }
