@@ -48,9 +48,10 @@ abstract class Inspection extends LocalInspectionTool {
 
     private static final String PROBLEM_FORMAT = "<html>%s<p style='font-size: x-small; padding:8px 0 0 0;'>Powered by Tiny Lynx</p></html>";
 
-    private boolean refreshingMode = false;
+    private final boolean refreshingMode;
 
     Inspection() {
+        this(false);
     }
 
     Inspection(boolean refreshingMode) {
@@ -79,6 +80,10 @@ abstract class Inspection extends LocalInspectionTool {
         if (!isOnTheFly) {
             SpellcheckResult result = spellcheckService.checkSync(target.getText());
             registerProblems(target, holder, result, false);
+        }
+
+        PsiFile containingFile = getContainingFile(target.getElement());
+        if (containingFile == null) {
             return;
         }
 
@@ -97,16 +102,18 @@ abstract class Inspection extends LocalInspectionTool {
                 .thenAccept(result -> doAsyncInspectCallback(holder, target.getElement(), containingFile, result));
     }
 
-    private void doAsyncInspectCallback(ProblemsHolder holder, PsiElement element, PsiFile containingFile, SpellcheckResult result) {
+    private void doAsyncInspectCallback(
+            ProblemsHolder holder,
+            PsiFile containingFile,
+            SpellcheckResult result) {
         // Upon the promise-like resolution, trigger a second ("refreshing") pass
         // with only looking up in the cache
         if (CollectionUtils.isEmpty(result.getAlerts())) {
             return;
         }
         ApplicationManager.getApplication().invokeLater(() -> {
-            if (!ObjectUtils.equals(containingFile, getTopLevelFile(holder.getProject(), element))) {
-                // Cannot display highlights for the injected (e.g. in ".MD" markup) code snippets. However, this
-                // is working OK for a synchronous inspection
+            if (holder.getProject().isDisposed()) {
+                LOG.warn("Could not perform the inspection: project has been already disposed");
                 return;
             }
             lightRefresh(
@@ -189,7 +196,12 @@ abstract class Inspection extends LocalInspectionTool {
 
     abstract Inspection getRefreshingInspection();
 
-    private void lightRefresh(Project project, PsiFile file, InspectionManagerEx manager) {
+    private void snapRefresh(
+            Project project,
+            PsiFile file,
+            InspectionManagerEx manager,
+            Inspection inspection) {
+
         if (file == null) {
             LOG.warn("Could not invoke the proper inspection context: file is null");
             return;
@@ -198,12 +210,23 @@ abstract class Inspection extends LocalInspectionTool {
             LOG.warn("Could not perform the refreshing inspection: project has been already disposed");
             return;
         }
+        if (DumbService.isDumb(project)) {
+            LOG.info("Cannot refresh because the IDE is in dumb mode");
+            return;
+        }
         Document document = PsiDocumentManager
                 .getInstance(project)
                 .getDocument(file);
         if (document == null) {
             return;
         }
+
+        boolean isInjected = InjectedFileHelper.isInjected(project, file);
+        PsiFile effectiveFile = isInjected ? InjectedFileHelper.getInspectableCopy(project, file) : file;
+        if (effectiveFile == null) {
+            return;
+        }
+
         LocalInspectionsPass localInspectionsPass = new LocalInspectionsPass(
                 file,
                 document,
@@ -214,12 +237,29 @@ abstract class Inspection extends LocalInspectionTool {
                 HighlightInfoProcessor.getEmpty(),
                 false);
 
-        ProgressManager.getInstance().runProcess(() -> doAsyncLightRefresh(project, document, manager, localInspectionsPass), new EmptyProgressIndicator());
+        ProgressManager.getInstance().runProcess(
+                () -> {
+                    doSnapRefreshCallback(project, document, manager, localInspectionsPass, inspection);
+                    if (isInjected) {
+                        HighlighterHelper.purgeRedundantHighlighters(project, document, file);
+                    } else {
+                        ApplicationManager.getApplication().invokeLater(
+                                () -> additionallyRefreshInjectedFiles(project, file, manager),
+                                ModalityState.defaultModalityState());
+                    }
+                },
+                new EmptyProgressIndicator());
     }
 
-    private void doAsyncLightRefresh(Project project, Document document, InspectionManagerEx manager, LocalInspectionsPass localInspectionsPass) {
-        LocalInspectionToolWrapper inspectionToolWrapper = new LocalInspectionToolWrapper(getRefreshingInspection());
-        localInspectionsPass.doInspectInBatch(
+    private void doSnapRefreshCallback(
+            Project project,
+            Document document,
+            InspectionManagerEx manager,
+            LocalInspectionsPass inspectionsPass,
+            Inspection inspection) {
+
+        LocalInspectionToolWrapper inspectionToolWrapper = new LocalInspectionToolWrapper(inspection);
+        inspectionsPass.doInspectInBatch(
                 manager.createNewGlobalContext(),
                 manager,
                 Collections.singletonList(inspectionToolWrapper));
@@ -246,15 +286,26 @@ abstract class Inspection extends LocalInspectionTool {
         }
     }
 
-    private static PsiFile getTopLevelFile(Project project, PsiElement element) {
-        FileViewProvider viewProvider;
-        try {
-            PsiFile file = InjectedLanguageManager.getInstance(project).getTopLevelFile(element);
-            viewProvider = Objects.requireNonNull(file).getViewProvider();
-        } catch (PsiInvalidElementAccessException | NullPointerException e) {
-            // Missing file is anticipated in certain circumstances (e.g., an injected code snippet)
-            return null;
-        }
-        return viewProvider.getPsi(viewProvider.getBaseLanguage());
+    private static List<PsiFile> getInjected(Project project, PsiFile source) {
+        List<PsiFile> result = new ArrayList<>();
+        InjectedLanguageManager injectedLanguageManager = InjectedLanguageManager.getInstance(project);
+        PsiElementVisitor visitor = new PsiRecursiveElementVisitor() {
+            @Override
+            public void visitElement(@NotNull PsiElement element) {
+                if (!(element instanceof PsiLanguageInjectionHost) ) {
+                    super.visitElement(element);
+                    return;
+                }
+                var injectedPsiFilePairs = injectedLanguageManager.getInjectedPsiFiles(element);
+                if (injectedPsiFilePairs == null) {
+                    super.visitElement(element);
+                    return;
+                }
+                result.addAll(injectedPsiFilePairs.stream().map(p -> (PsiFile) p.getFirst()).distinct().collect(Collectors.toList()));
+                super.visitElement(element);
+            }
+        };
+        source.acceptChildren(visitor);
+        return result;
     }
 }
