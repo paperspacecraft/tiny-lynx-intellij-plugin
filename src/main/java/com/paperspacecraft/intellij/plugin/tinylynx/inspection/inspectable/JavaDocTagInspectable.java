@@ -41,7 +41,7 @@ class JavaDocTagInspectable extends CommentInspectable {
         String content = existingTagChunk.getContent();
         String heading;
         if (StringUtils.startsWithAny(content, TAG_RETURN, TAG_CUSTOM)) {
-            int positionAfterSpace = StringHelper.getPositionAfterSpace(content);
+            int positionAfterSpace = StringHelper.getAfterFarthestSpaceToTheRight(content);
             if (positionAfterSpace > 0) {
                 heading = content.substring(0, positionAfterSpace);
                 content = content.substring(positionAfterSpace);
@@ -50,7 +50,7 @@ class JavaDocTagInspectable extends CommentInspectable {
                 content = null;
             }
         } else {
-            int positionAfterSecondSpace = StringHelper.getPositionAfterSecondSpace(content);
+            int positionAfterSecondSpace = StringHelper.getAfterFarthestSpaceToTheRight(content, 2);
             if (positionAfterSecondSpace > 0) {
                 heading = content.substring(0, positionAfterSecondSpace);
                 content = content.substring(positionAfterSecondSpace);

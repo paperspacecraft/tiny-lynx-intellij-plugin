@@ -178,7 +178,7 @@ public class CommentInspectable implements Inspectable {
             return result;
         }
 
-        StringHelper.WhitespaceMatcher matcher = StringHelper.newWhitespaceMatcher(value);
+        StringHelper.WhitespaceMatcher matcher = StringHelper.whitespaceMatcher(value);
         int lastVisitedPos = 0;
         while (matcher.find()) {
             if (matcher.getStart() > lastVisitedPos) {

@@ -10,36 +10,43 @@ import org.apache.commons.lang3.ArrayUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Deque;
+import java.util.LinkedList;
 import java.util.List;
 
 @UtilityClass
 public class StringHelper {
     private static final char[] EXTRA_WHITESPACE_SAMPLES = new char[] {'/', '*'};
 
-    public static int getPositionAfterSpace(String value) {
-        return getPositionAfterSpace(value, 0);
-    }
-
-    private static int getPositionAfterSpace(String value, int offset) {
-        int posAfterNonWhitespaces = skipNonWhitespaces(value, offset);
-        return skipWhitespaces(value, posAfterNonWhitespaces);
-    }
-
-    public static int getLeftmostSpace(String value, int offset) {
-        int spacePosition = offset - 1;
-        while (spacePosition >= 0 && isWhitespace(value.charAt(spacePosition))) {
-            spacePosition--;
+    public static int getFarthestSpaceToTheLeft(String value, int offset) {
+        int spacePosition = offset;
+        if (!isWhitespace(value.charAt(spacePosition))) {
+            while (spacePosition >= 0 && !isWhitespace(value.charAt(spacePosition))) {
+                spacePosition--;
+            }
+        }
+        if (spacePosition >= 0) {
+            while (spacePosition >= 0 && isWhitespace(value.charAt(spacePosition))) {
+                spacePosition--;
+            }
         }
         return spacePosition + 1;
     }
 
-    public static int getPositionAfterSecondSpace(String value) {
-        int posAfterSpace = getPositionAfterSpace(value);
-        return getPositionAfterSpace(value, posAfterSpace);
+    public static int getAfterFarthestSpaceToTheRight(String value) {
+        return getAfterFarthestSpaceToTheRight(value, 1);
     }
 
-    static boolean isOneWord(String value) {
-        return value != null && value.chars().noneMatch(Character::isWhitespace);
+    public static int getAfterFarthestSpaceToTheRight(String value, int steps) {
+        int result = 0;
+        for (int i = 0; i < steps; i++) {
+            result = skipNonWhitespaces(value, result);
+            if (result >= value.length()) {
+                return value.length();
+            }
+            result = skipWhitespaces(value, result);
+        }
+        return result;
     }
 
     public static boolean isWithinJavadocTag(String text, TextRange range) {
@@ -56,23 +63,54 @@ public class StringHelper {
         if (!StringUtils.contains(text, "`")) {
             return false;
         }
-        List<TextRange> snippetRanges = new ArrayList<>(createMarkedRanges(text, "```", Collections.emptyList()));
-        snippetRanges.addAll(createMarkedRanges(text, "`", snippetRanges));
+        List<TextRange> snippetRanges = new ArrayList<>(getDelimitedRanges(text, "```", Collections.emptyList(), true));
+        snippetRanges.addAll(getDelimitedRanges(text, "`", snippetRanges, true));
         if  (snippetRanges.stream().noneMatch(r -> r.contains(range))) {
             return false;
         }
         return snippetRanges.stream().anyMatch(r -> r.contains(range));
     }
 
-    public static boolean isWithinEmphasis(String text, TextRange range) {
-        if (!StringUtils.contains(text, "*")) {
+    public static boolean isWithinDelimiters(String text, TextRange range, String delimiter) {
+        if (!StringUtils.contains(text, delimiter)) {
             return false;
         }
-        List<TextRange> emphasisRanges = new ArrayList<>(createMarkedRanges(text, "*", Collections.emptyList()));
+        List<TextRange> emphasisRanges = new ArrayList<>(getDelimitedRanges(text, delimiter, Collections.emptyList(), false));
         return emphasisRanges.stream().anyMatch(r -> r.contains(range));
     }
 
-    private static List<TextRange> createMarkedRanges(String text, String delimiter, List<TextRange> existingRanges) {
+    public static List<TextRange> getDelimitedRanges(String text, String startingDelimiter, String closingDelimiter) {
+        List<TextRange> result = new ArrayList<>();
+        Deque<Integer> startingPositions = new LinkedList<>();
+        int nextPoint = text.indexOf(startingDelimiter);
+        boolean nextPointIsStart = true;
+        while (nextPoint >= 0) {
+            if (nextPointIsStart) {
+                startingPositions.add(nextPoint);
+            } else if (!startingPositions.isEmpty()) {
+                result.add(new TextRange(startingPositions.removeLast(), nextPoint + closingDelimiter.length()));
+            }
+            int nextSearchPos = nextPoint + (nextPointIsStart ? startingDelimiter.length() : closingDelimiter.length());
+            int nextStart = text.indexOf(startingDelimiter, nextSearchPos);
+            int nextEnd = text.indexOf(closingDelimiter, nextSearchPos);
+            if (nextEnd >= 0 && (nextStart < 0 || nextEnd < nextStart)) {
+                nextPoint = nextEnd;
+                nextPointIsStart = false;
+            } else if (nextStart >= 0) {
+                nextPoint = nextStart;
+                nextPointIsStart = true;
+            } else {
+                nextPoint = -1;
+            }
+        }
+        return result;
+    }
+
+    private static List<TextRange> getDelimitedRanges(
+            String text,
+            String delimiter,
+            List<TextRange> existingRanges,
+            boolean greedy) {
         List<TextRange> result = new ArrayList<>();
         int start = text.indexOf(delimiter);
         int end;
@@ -88,13 +126,13 @@ public class StringHelper {
                 return result;
             }
             result.add(new TextRange(start, end + delimiter.length()));
-            start = text.indexOf(delimiter, end + delimiter.length());
+            start = text.indexOf(delimiter, end + (greedy ? delimiter.length() : 0));
         }
         return result;
     }
 
-    public static WhitespaceMatcher newWhitespaceMatcher(String value) {
-        return new WhitespaceMatcher(value);
+    static boolean isOneWord(String value) {
+        return value != null && value.chars().noneMatch(Character::isWhitespace);
     }
 
     private static int skipWhitespaces(String value, int offset) {
@@ -118,13 +156,16 @@ public class StringHelper {
                 return i;
             }
         }
-        return value.length();
+        return value.length() + 1;
     }
 
     private static boolean isWhitespace(char value) {
         return Character.isWhitespace(value) || ArrayUtils.contains(EXTRA_WHITESPACE_SAMPLES, value);
     }
 
+    public static WhitespaceMatcher whitespaceMatcher(String value) {
+        return new WhitespaceMatcher(value);
+    }
 
     @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
     public static class WhitespaceMatcher {
