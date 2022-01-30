@@ -10,6 +10,7 @@ import com.intellij.codeInspection.ProblemHighlightType;
 import com.intellij.codeInspection.ProblemsHolder;
 import com.intellij.codeInspection.ex.InspectionManagerEx;
 import com.intellij.codeInspection.ex.LocalInspectionToolWrapper;
+import com.intellij.lang.Language;
 import com.intellij.lang.injection.InjectedLanguageManager;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ModalityState;
@@ -17,13 +18,16 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.progress.EmptyProgressIndicator;
 import com.intellij.openapi.progress.ProgressManager;
+import com.intellij.openapi.project.DumbService;
 import com.intellij.openapi.project.Project;
-import com.intellij.psi.FileViewProvider;
+import com.intellij.openapi.util.TextRange;
 import com.intellij.psi.PsiDocumentManager;
 import com.intellij.psi.PsiElement;
+import com.intellij.psi.PsiElementVisitor;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.PsiInvalidElementAccessException;
-import com.intellij.psi.SmartPointerManager;
+import com.intellij.psi.PsiLanguageInjectionHost;
+import com.intellij.psi.PsiRecursiveElementVisitor;
 import com.paperspacecraft.intellij.plugin.tinylynx.inspection.inspectable.Inspectable;
 import com.paperspacecraft.intellij.plugin.tinylynx.inspection.quickfix.IgnoreCategoryQuickFix;
 import com.paperspacecraft.intellij.plugin.tinylynx.inspection.quickfix.IgnoreTextQuickFix;
@@ -32,21 +36,24 @@ import com.paperspacecraft.intellij.plugin.tinylynx.spellcheck.SpellcheckAlert;
 import com.paperspacecraft.intellij.plugin.tinylynx.spellcheck.SpellcheckResult;
 import com.paperspacecraft.intellij.plugin.tinylynx.spellcheck.SpellcheckService;
 import org.apache.commons.collections.CollectionUtils;
-import org.apache.commons.lang.ObjectUtils;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 abstract class Inspection extends LocalInspectionTool {
     private static final Logger LOG = Logger.getInstance(Inspection.class);
 
-    private static final String PROBLEM_FORMAT = "<html>%s<p style='font-size: x-small; padding:8px 0 0 0;'>Powered by Tiny Lynx</p></html>";
+    static final String BRAND_TOKEN = "Powered by Tiny Lynx";
+    private static final String PROBLEM_FORMAT = "<html>%s<p style='font-size: x-small; padding:8px 0 0 0;'>&nbsp;*&nbsp;" + BRAND_TOKEN + "</p></html>";
 
     private final boolean refreshingMode;
 
@@ -96,10 +103,9 @@ abstract class Inspection extends LocalInspectionTool {
 
         // Finally, start the asynchronous search
         Object identity = new LightIdentity(target.getElement(), containingFile);
-        List<RangeHighlighter> highlighters = HighlighterHelper.getHighlighters(holder.getProject(), containingFile);
         spellcheckService
                 .checkAsync(identity, target.getText())
-                .thenAccept(result -> doAsyncInspectCallback(holder, target.getElement(), containingFile, result));
+                .thenAccept(result -> doAsyncInspectCallback(holder, containingFile, result));
     }
 
     private void doAsyncInspectCallback(
@@ -116,10 +122,11 @@ abstract class Inspection extends LocalInspectionTool {
                 LOG.warn("Could not perform the inspection: project has been already disposed");
                 return;
             }
-            lightRefresh(
+            snapRefresh(
                     holder.getProject(),
-                    getContainingFile(element),
-                    (InspectionManagerEx) holder.getManager());
+                    containingFile,
+                    (InspectionManagerEx) holder.getManager(),
+                    getRefreshingInspection());
         }, ModalityState.any());
 
     }
@@ -137,28 +144,17 @@ abstract class Inspection extends LocalInspectionTool {
         if (CollectionUtils.isEmpty(result.getAlerts())) {
             return;
         }
+
         SettingsService settings = SettingsService.getInstance(holder.getProject());
-        List<SpellcheckAlert> processedAlerts = new ArrayList<>();
 
         for (SpellcheckAlert alert : result.getAlerts()) {
-
-            boolean isSimilarProcessed = processedAlerts
-                    .stream()
-                    .anyMatch(other -> StringUtils.equals(alert.getFullMessage(), other.getFullMessage())
-                            && alert.getRange().equals(other.getRange()));
-            boolean isExcluded = SettingsService.getInstance(holder.getProject()).getExclusionSet()
-                    .stream()
-                    .anyMatch(exclusion -> StringUtils.equals(exclusion, alert.getContent())
-                            || StringUtils.equalsIgnoreCase(exclusion, IgnoreCategoryQuickFix.PREFIX_CATEGORY + alert.getCategory()));
-
-            if ((!alert.isFacultative() || settings.isShowAdvancedMistakes())
-                    && !isSimilarProcessed
-                    && target.isAlertRelevant(alert)
-                    && !isExcluded) {
-                registerProblem(target, holder, alert, isOnTheFly);
+            TextRange rangeInElement = target.toRangeInElement(alert.getRange());
+            if (!isKnownProblem(holder, alert.getFullMessage(), rangeInElement)
+                    && (!alert.isFacultative() || settings.isShowAdvancedMistakes())
+                    && !isExcludedProblem(settings, alert)
+                    && target.isAlertRelevant(alert)) {
+                registerProblem(target, holder, alert, rangeInElement, isOnTheFly);
             }
-
-            processedAlerts.add(alert);
         }
     }
 
@@ -166,12 +162,15 @@ abstract class Inspection extends LocalInspectionTool {
             Inspectable target,
             ProblemsHolder holder,
             SpellcheckAlert alert,
+            TextRange rangeInElement,
             boolean isOnTheFly) {
 
         boolean canHaveReplacements = isOnTheFly && target.canHaveReplacements(alert);
 
         Stream<LocalQuickFix> ignores = Stream.of(
-                IgnoreTextQuickFix.isApplicable(alert) ? new IgnoreTextQuickFix(alert.getContent()) : null,
+                IgnoreTextQuickFix.isApplicable(alert) && StringUtils.isNotBlank(alert.getCategory()) && StringUtils.isNotEmpty(alert.getContent())
+                        ? new IgnoreTextQuickFix(alert.getCategory(), alert.getContent())
+                        : null,
                 new IgnoreCategoryQuickFix(alert.getCategory()))
                 .filter(Objects::nonNull);
 
@@ -181,13 +180,45 @@ abstract class Inspection extends LocalInspectionTool {
 
         LocalQuickFix[] quickFixes = Stream.concat(ignores, replacements).toArray(LocalQuickFix[]::new);
 
-        String fullMessage = String.format(PROBLEM_FORMAT, alert.getFullMessage());
+        String fullMessage = StringUtils.stripEnd(String.format(PROBLEM_FORMAT, alert.getFullMessage()), ". ");
+
+        // Avoiding the "Assertion Failed" exception in com.intellij.codeInspection.ProblemDescriptorBase.<init>
+        PsiElement targetElement = target.getElement();
+        PsiFile targetFile = targetElement.getContainingFile();
+        boolean isValid = targetFile != null && targetFile.isValid() || targetElement.isValid();
+        if (!isValid) {
+            return;
+        }
+
         holder.registerProblem(
                 target.getElement(),
                 fullMessage,
                 alert.isFacultative() ? ProblemHighlightType.WEAK_WARNING : ProblemHighlightType.WARNING,
-                target.toRangeInElement(alert.getRange()),
+                rangeInElement,
                 quickFixes);
+    }
+
+    private boolean isKnownProblem(ProblemsHolder holder, String message, TextRange range) {
+        return holder
+                .getResults()
+                .stream()
+                .anyMatch(problem -> StringUtils.contains(problem.getDescriptionTemplate(), message)
+                        && problem.getTextRangeInElement().equals(range));
+    }
+
+    private boolean isExcludedProblem(SettingsService settings, SpellcheckAlert alert) {
+        Set<String> exclusions = settings.getExclusionSet();
+        for (String exclusion : exclusions) {
+            String categoryToken = IgnoreCategoryQuickFix.PREFIX_CATEGORY + alert.getCategory();
+            if (StringUtils.equalsAny(
+                    exclusion,
+                    alert.getContent(),
+                    categoryToken,
+                    String.format(IgnoreTextQuickFix.EXCLUSION_FORMAT, categoryToken, alert.getContent()))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /* ----------------
@@ -228,7 +259,7 @@ abstract class Inspection extends LocalInspectionTool {
         }
 
         LocalInspectionsPass localInspectionsPass = new LocalInspectionsPass(
-                file,
+                effectiveFile,
                 document,
                 0,
                 document.getTextLength(),
@@ -269,14 +300,39 @@ abstract class Inspection extends LocalInspectionTool {
                 document,
                 0,
                 document.getTextLength(),
-                localInspectionsPass.getInfos(),
+                inspectionsPass.getInfos(),
                 null,
                 Pass.LOCAL_INSPECTIONS);
+    }
+
+    private void additionallyRefreshInjectedFiles(
+            Project project,
+            PsiFile file,
+            InspectionManagerEx manager) {
+
+        List<PsiFile> injectedFiles = getInjected(project, file);
+        for (PsiFile injectedFile : injectedFiles) {
+            Inspection refreshingInspection = getRefreshingInspection(injectedFile.getViewProvider().getBaseLanguage());
+            if (refreshingInspection == null) {
+                continue;
+            }
+            snapRefresh(project, injectedFile, manager, refreshingInspection);
+        }
     }
 
     /* ---------------
        Utility methods
        --------------- */
+
+    private Inspection getRefreshingInspection(Language language) {
+        if (StringUtils.equalsIgnoreCase(language.getID(), "java")) {
+            return new JavaInspection(true/*, getProblems()*/);
+        }
+        if (StringUtils.equalsIgnoreCase(language.getID(), "markdown")) {
+            return new MarkdownInspection(true/*, getProblems()*/);
+        }
+        return null;
+    }
 
     private static PsiFile getContainingFile(PsiElement element) {
         try {
