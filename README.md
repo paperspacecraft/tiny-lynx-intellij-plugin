@@ -4,7 +4,7 @@ The plugin provides the integration of third-party spellcheck (proofreading) too
 
 ### Features:
 
-- On-the-fly proofreading (sends requests via the web client end renders warnings/suggestions as you type). Note: warning highlights appear after a delay due to the network lag. The delay depends on the network connection. A user can turn off the on-the-fly mode.
+- On-the-fly proofreading (sends requests via the web client and renders warnings/suggestions as you type). Note: warning highlights appear after a delay due to the network lag. The delay depends on the network connection. A user can turn off the on-the-fly mode.
 
 - Proofreading during the code analysis. Note: code analysis takes longer than usual because network requests are sent synchronously.
 
